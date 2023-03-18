@@ -1,0 +1,21 @@
+{
+    "name": "Flipkart Product Replicator",
+    "description": "Google Chrome extension",
+    "version": "1.0",
+    "manifest_version": 3,
+    "action": {
+        "default_popup": "main.html",
+        "default_icon": {
+            "48": "/assets/icons/48.png",
+            "128": "/assets/icons/128.png"
+        }
+    },
+    "permissions": [
+        "tabs",
+        "http://localhost/*"
+    ],
+    "icons": {
+        "48": "/assets/icons/48.png",
+        "128": "/assets/icons/128.png"
+    }
+}
