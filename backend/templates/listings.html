@@ -8,7 +8,7 @@
             <th style="background-color:gray; color:white; padding:10px;">Our Price</th>
         </tr>
         {% for row in data %}
-            <tr>
+            <tr onclick="this.style.backgroundColor = 'green';">
                 <td style="border:1px solid black; padding:10px;">{{ row['product_name'] }}</td>
                 <td style="border:1px solid black; padding:10px;">
                     <a target="_blank" rel="noopener noreferrer" href={{"https://seller.flipkart.com/index.html#dashboard/listings-management?listingState=ACTIVE&listingsSearchQuery=" ~ row['pid'] }}>
