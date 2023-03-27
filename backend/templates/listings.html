@@ -3,6 +3,31 @@
         <tr style="font-weight:700">
             <th style="background-color:gray; color:white; padding:10px;">Product Name</th>
             <th style="background-color:gray; color:white; padding:10px;">Product ID</th>
+            <th style="background-color:gray; color:white; padding:10px;">Second Price</th>
+            <th style="background-color:gray; color:white; padding:10px;">Second Seller</th>
+            <th style="background-color:gray; color:white; padding:10px;">Our Price</th>
+        </tr>
+        {% for row in data_lowest %}
+            <tr onclick="this.style.backgroundColor = 'green';">
+                <td style="border:1px solid black; padding:10px;">{{ row['product_name'] }}</td>
+                <td style="border:1px solid black; padding:10px;">
+                    <a target="_blank" rel="noopener noreferrer" href={{"https://seller.flipkart.com/index.html#dashboard/listings-management?listingState=ACTIVE&listingsSearchQuery=" ~ row['pid'] }}>
+                        {{ row['pid'] }}
+                    </a>
+                </td>
+                <td style="border:1px solid black; padding:10px;">{{ row['min_price2'] }}</td>
+                <td style="border:1px solid black; padding:10px;">{{ row['min_seller2'] }}</td>
+                <td style="border:1px solid black; padding:10px;">{{ row['pax_value'] }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+{% endblock %}
+
+{% block content2 %}
+    <table style="width:100%; border:1px solid black; border-collapse:collapse;">
+        <tr style="font-weight:700">
+            <th style="background-color:gray; color:white; padding:10px;">Product Name</th>
+            <th style="background-color:gray; color:white; padding:10px;">Product ID</th>
             <th style="background-color:gray; color:white; padding:10px;">Listed Price</th>
             <th style="background-color:gray; color:white; padding:10px;">Minimum Seller Name</th>
             <th style="background-color:gray; color:white; padding:10px;">Our Price</th>

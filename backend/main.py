@@ -288,10 +288,13 @@ def process_url(pid):
             amount = price.find('div', {'class': '_30jeq3'}).text.strip()
             d['other_prices'].append({seller: amount})
         min_dict = min(d['other_prices'], key=lambda x: int(x[next(iter(x))].replace('₹', '').replace(',', '')))
+        second_min_pair = sorted(d['other_prices'], key=lambda x: float(x[1].replace('₹', '').replace(',', '')))[1]
         key, value = list(min_dict.items())[0]
         d['pax_value'] = next((x["paxauto"] for x in d['other_prices'] if "paxauto" in x), None)
         d['min_seller'] = key
         d['min_price'] = value
+        d['min_seller2'] = second_min_pair[0]
+        d['min_price2'] = second_min_pair[1]
     except Exception as e:
         print(f'Couldnt process {seller_url}')
         d = {}
@@ -338,14 +341,18 @@ if __name__ == '__main__':
         
         with open("old_dump.json", "w") as outfile:
             json.dump(data, outfile)
-            
-        data = list(filter(lambda x: int(x['pax_value'][1:].replace(',', '')) > int(x['min_price'][1:].replace(',', '')), data))
+        print("Total Items: ", len(data))
+        
+        data_highest = filter(lambda x: int(x['pax_value'][1:].replace(',', '')) > int(x['min_price'][1:].replace(',', '')), data)
+        
+        data_lowest = filter(lambda x: int(x['pax_value'][1:].replace(',', '')) == int(x['min_price'][1:].replace(',', '')), data)
         
         print("Total Items: ", len(data))
         
         return render_template(
             'listings.html',
-            data=data,
+            data=list(data_highest),
+            data_lowest=data_lowest
         )
 
     @app.route('/listings_old', methods=['GET'])
@@ -354,13 +361,16 @@ if __name__ == '__main__':
         data = json.load(f)
         data = [d for d in data if bool(d) and d['pax_value'] != None]
         
-        data = list(filter(lambda x: int(x['pax_value'][1:].replace(',', '')) > int(x['min_price'][1:].replace(',', '')), data))
+        data_highest = filter(lambda x: int(x['pax_value'][1:].replace(',', '')) > int(x['min_price'][1:].replace(',', '')), data)
+        
+        data_lowest = filter(lambda x: int(x['pax_value'][1:].replace(',', '')) == int(x['min_price'][1:].replace(',', '')), data)
         
         print("Total Items: ", len(data))
         
         return render_template(
             'listings.html',
-            data=data,
+            data=list(data_highest),
+            data_lowest=data_lowest
         )
     
     app.run(debug=True, port=8000)
