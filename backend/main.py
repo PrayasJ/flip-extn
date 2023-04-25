@@ -311,16 +311,20 @@ def get_listing_price():
 
     col_name = 'Flipkart Serial Number'
     col_index = header_row.index(col_name)
-
+    seller_sku = 'Seller SKU Id'
+    col_index2 = header_row.index(seller_sku)
     pids = []
+    sku_ids = {}
     for i in range(2, worksheet.nrows):
         row = worksheet.row_values(i)
         pids.append(row[col_index])
+        sku_ids[row[col_index]] = row[col_index2]
     
     pool = multiprocessing.Pool()
     #pids = pids[:10]
     data = list(tqdm.tqdm(pool.imap(process_url, pids), total=len(pids)))
-
+    for i in range(len(data)):
+        data[i]['sku'] = sku_ids[data[i]['pid']]
     return data
 
 if __name__ == '__main__':
