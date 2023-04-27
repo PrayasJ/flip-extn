@@ -324,7 +324,10 @@ def get_listing_price():
     #pids = pids[:10]
     data = list(tqdm.tqdm(pool.imap(process_url, pids), total=len(pids)))
     for i in range(len(data)):
-        data[i]['sku'] = sku_ids[data[i]['pid']]
+        if 'pid' in data[i]:
+            data[i]['sku'] = sku_ids[data[i]['pid']]
+        else:
+            print(f'pid missing in ', data[i])
     return data
 
 if __name__ == '__main__':
