@@ -357,7 +357,7 @@ def process_item2(item):
         print('failed to update/add')
         print(item) 
     
-def bulkMap(user, passw, brand, seller_id):
+def bulkMap(user, passw):
     workbook = xlrd.open_workbook('data.xls')
     worksheet = workbook.sheet_by_index(0)
     header_row = worksheet.row_values(0)
@@ -407,35 +407,22 @@ def bulkMap(user, passw, brand, seller_id):
         'fk-csrf-token': app_data['sellerConfig']['csrfToken']
     }
     
+    seller_id = app_data['sellerConfig']['sellerId']
+    
     for i in range(2, rowCount):
         row = worksheet.row_values(i)
         item = {key: row[dataKeyMap[key]] for key in dataKeyMap}
-        # item['details'] = {
-        #     'user': user,
-        #     'passw': passw,
-        #     'brand': brand
-        # }
+
         item['Your Selling Price'] = int(int(item['Your Selling Price']) * 1.1)
-        # item['stock'] = 1000
-        # item['local delivery charge'] = 0
-        # item['zonal delivery charge'] = 0
-        # item['national delivery charge'] = 0
-        # item['luxury cess'] = 0
-        # item['country of origin'] = 'India'
         item['seller_brand'] = 'CARJUNCTION'
         item['seller_id'] = seller_id
         item['headers'] = headers
         data.append(item)
     count = 0
     for item in data:
-        #process_item(item)
         count += 1
         print(f'Processing {count}/{rowCount}')
         process_item2(item)
         time.sleep(1)
-        
-    #pool = multiprocessing.Pool()
-    #pids = pids[:10]
-    #data = list(tqdm.tqdm(pool.imap(process_url, pids), total=len(pids)))
 
-bulkMap(sys.argv[1], sys.argv[2], 'CARJUNCTION', '8074129009f74a0c')
+bulkMap(sys.argv[1], sys.argv[2])
