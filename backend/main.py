@@ -290,8 +290,9 @@ def process_url(pid):
         min_dict = min(d['other_prices'], key=lambda x: int(x[next(iter(x))].replace('₹', '').replace(',', '')))
         
         key, value = list(min_dict.items())[0]
-        
+        print(d['other_prices'])
         d['pax_value'] = next((x["paxauto"] for x in d['other_prices'] if "paxauto" in x), None)
+        d['sara_value'] = next((x["CARJUNCTION"] for x in d['other_prices'] if "CARJUNCTION" in x), None)
         d['min_seller'] = key
         d['min_price'] = value
         if len(d['other_prices']) > 1: 
@@ -362,6 +363,28 @@ if __name__ == '__main__':
         
         return render_template(
             'listings.html',
+            data=list(data_highest),
+            data_lowest=data_lowest
+        )
+        
+    @app.route('/listings_sara', methods=['GET'])
+    def listings():
+        data = get_listing_price()
+        #data = testData
+        data = [d for d in data if bool(d) and d['sara_value'] != None]
+        
+        with open("old_dump.json", "w") as outfile:
+            json.dump(data, outfile)
+        print("Total Items: ", len(data))
+        
+        data_highest = filter(lambda x: int(x['sara_value'][1:].replace(',', '')) > int(x['min_price'][1:].replace(',', '')), data)
+        
+        data_lowest = filter(lambda x: int(x['sara_value'][1:].replace(',', '')) == int(x['min_price'][1:].replace(',', '')), data)
+        
+        print("Total Items: ", len(data))
+        
+        return render_template(
+            'listings_sara.html',
             data=list(data_highest),
             data_lowest=data_lowest
         )

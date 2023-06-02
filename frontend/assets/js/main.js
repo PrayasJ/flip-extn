@@ -1,9 +1,13 @@
 const sendURL = document.getElementById('sub-button');
 const listingBtn = document.getElementById('listings')
+const listingSaraBtn = document.getElementById('listings_sara')
 console.log(sendURL)
 
 listingBtn.addEventListener( 'click', () => {
     window.open('http://localhost:8000/listings','_blank')
+})
+listingSaraBtn.addEventListener( 'click', () => {
+    window.open('http://localhost:8000/listings_sara','_blank')
 })
 sendURL.addEventListener( 'click', () => {
 	chrome.tabs.query({currentWindow: true, active: true}, async function(tabs){
