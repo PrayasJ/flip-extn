@@ -12,9 +12,6 @@ import os
 import PyPDF2
 from io import BytesIO
 
-from datetime import datetime, timedelta
-import pytz
-
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.by import By
@@ -103,7 +100,7 @@ options.add_experimental_option('excludeSwitches', ['enable-logging'])
 # options.add_experimental_option("detach", True)
 driver = webdriver.Chrome(options=options)
 
-def bulkLabel(user, passw):
+def bulkRTD(user, passw):
     loginUrl = 'https://seller.flipkart.com/index.html#dashboard'
     driver.get(loginUrl)
     print('Logging in...')
@@ -143,86 +140,45 @@ def bulkLabel(user, passw):
         'https://seller.flipkart.com/napi/get-locations?locationType=pickup&include=state', headers=headers)
     result = json.loads(response.text)
     location_id = result['result']['multiLocationList'][0]['locationId']
-    
-    current_datetime = datetime.now(pytz.utc)
-    timezone_offset = timedelta(hours=5, minutes=30)
-    current_datetime_with_offset = current_datetime + timezone_offset
-
-    formatted_datetime = current_datetime_with_offset.strftime("%Y-%m-%dT%H:%M:%S.000%z")
     #status='shipments_to_handover' for final 'shipments_to_pack' for first and 'shipments_to_dispatch' for label
-    data = {"status":"shipments_to_pack","payload":{"pagination":{"page_num":1,"page_size":2000},"params":{"dispatch_after_date":{"to":formatted_datetime}}}}
+    data = {"status":"shipments_to_handover","payload":{"pagination":{"page_num":1,"page_size":2000},"params":{}}}
     response = requests.post(
         f'https://seller.flipkart.com/napi/my-orders/fetch?sellerId={seller_id}', headers=headers, data=json.dumps(data))
     
     result = json.loads(response.text)
     items = result['items']
     
+    totalCount = len(items)
     n = 160
     
-    data_blocks = []
+    pdf_merger = PyPDF2.PdfFileMerger()
     
-    for item in items:
-        if 'order_items' not in item or len(item['order_items']) > 1 or item['order_items'][0]['quantity'] > 1:
-            continue
-        data_template = {
-                "id": item['id'],
-                "invoice": {
-                    "items": [
-                        {
-                            "order_item_id": item['order_items'][0]['order_item_id'],
-                            "purchase_price": None,
-                            "quantity": 1
-                        }
-                    ]
-                },
-                "serialized_items": [
-                    {
-                        "order_item_id": item['order_items'][0]['order_item_id'],
-                        "serial_numbers": []
-                    }
-                ],
-                "dimensions": [
-                    {
-                        "breadth": item['sub_shipments'][0]['packages'][0]['dimensions']['breadth'],
-                        "height": item['sub_shipments'][0]['packages'][0]['dimensions']['height'],
-                        "length": item['sub_shipments'][0]['packages'][0]['dimensions']['length'],
-                        "weight": item['sub_shipments'][0]['packages'][0]['dimensions']['weight'],
-                        "external_sub_shipment_id": item['sub_shipments'][0]['external_sub_shipment_id']
-                    }
-                ]
-            }
-        data_blocks.append(data_template)
+    items = [d['id'] for d in items]
     
-    totalCount = len(data_blocks)
-    
-    item_chunks = [data_blocks[i:i+n] for i in range(0, len(data_blocks), n)]
-    count = 0
-    for chunk in item_chunks:
-        data = {
-            "shipments": chunk,
-            "sellerId": seller_id
-        }
-        # print(json.dumps(data))
-        response = requests.post(f'https://seller.flipkart.com/napi/shipments/packV2?isCartmanValidationEnabled=true&sellerId={seller_id}', headers=headers, data=json.dumps(data))
-        response = json.loads(response.text)
-        
-        count += len(chunk)
-        print(f'processed {count}/{totalCount}')
-        time.sleep(1)
-    
-    notDone = True
-    headers['X-LOCATION-ID'] = location_id
-    while notDone:
-        response = requests.get(f'https://seller.flipkart.com/napi/my-orders/label-generation-status?status=in_process_orders_count&sellerId={seller_id}&serviceProfile=NON_FBF', headers=headers)
-        response = json.loads(response.text)
-        print(response)
-        count = int(response['count'])
-        if count == 0:
-            notDone = False
+    download_chunks = [items[i:i+n] for i in range(0, len(items), n)]
+    for chunk in download_chunks:
+        items_string = '%2C'.join(chunk)
+        request_url = f'https://seller.flipkart.com/napi/my-orders/reprint_labels?shipmentIds={items_string}'
+        response = requests.get(request_url, headers=headers)
+
+        if response.status_code == 200:
+            pdf_bytes = BytesIO(response.content)
+            pdf_merger.append(PyPDF2.PdfFileReader(pdf_bytes))
+            print(f'downloaded {len(chunk)} labels!')
         else:
-            print(f'{count} left to process')
-            response = requests.get(f'https://seller.flipkart.com/napi/orders/downloadLabelsCreatedV2?useNewTemplate=true&locationId={location_id}&sellerId={seller_id}', headers=headers)
-            time.sleep(1)
+            print(response.text)
+            print("Error: Could not download file")
+    
+    now = datetime.now()
+    date_string = now.strftime("%Y-%m-%d_%H-%M-%S")
+    
+    filename = f"{date_string}_merged.pdf"
+    filepath = os.path.join(downloads_path, filename)
+
+    with open(filepath, 'wb') as f:
+        pdf_merger.write(f)
+
+    print(f"Files merged and saved as '{filename}' in Downloads folder")
 
 
-bulkLabel(sys.argv[1], sys.argv[2])
+bulkRTD(sys.argv[1], sys.argv[2])

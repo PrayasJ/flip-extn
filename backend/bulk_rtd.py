@@ -141,7 +141,7 @@ def bulkRTD(user, passw):
     result = json.loads(response.text)
     location_id = result['result']['multiLocationList'][0]['locationId']
     #status='shipments_to_handover' for final 'shipments_to_pack' for first and 'shipments_to_dispatch' for label
-    data = {"status":"shipments_to_dispatch","payload":{"pagination":{"page_num":1,"page_size":1000},"params":{}}}
+    data = {"status":"shipments_to_dispatch","payload":{"pagination":{"page_num":1,"page_size":2000},"params":{}}}
     response = requests.post(
         f'https://seller.flipkart.com/napi/my-orders/fetch?sellerId={seller_id}', headers=headers, data=json.dumps(data))
     
