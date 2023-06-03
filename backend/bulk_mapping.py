@@ -332,14 +332,15 @@ data_template = {
     "sellerId": "8074129009f74a0c"
 }   
 
+def alreadySelling(item):
+    response = requests.get(f'https://seller.flipkart.com/napi/listing/searchProduct?fsnSearch={item["Flipkart Serial Number"]}&sellerId={item["seller_id"]}', headers=item['headers'])
+    is_product = json.loads(response.text)
+    if len(is_product['result']['productList']) == 0:
+        return -1
+    return is_product['result']['productList'][0]['alreadySelling']
+
 def process_item2(item):
     global data_template
-    # response = requests.get(f'https://seller.flipkart.com/napi/listing/searchProduct?fsnSearch={item["Flipkart Serial Number"]}&sellerId={item["seller_id"]}', headers=item['headers'])
-    # is_product = json.loads(response.text)
-    # # print()
-    # # if len(is_product['result']['productList']) > 0:
-    # #     print('Product already listed!')
-    # #     return
     data = data_template.copy()
     for key in item:
         key_data = dataKeys[key]
@@ -419,7 +420,16 @@ def bulkMap(user, passw):
         item['headers'] = headers
         data.append(item)
     count = 0
+    notSelling = []
+    print(f'Going over {rowCount} products to check how many are being listed...')
     for item in data:
+        is_selling = alreadySelling(item)
+        if is_selling is False:
+            notSelling.append(item)
+
+    rowCount = len(notSelling)
+    print(f'Not selling {rowCount} products.')
+    for item in notSelling:
         count += 1
         print(f'Processing {count}/{rowCount}')
         process_item2(item)

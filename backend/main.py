@@ -368,7 +368,7 @@ if __name__ == '__main__':
         )
         
     @app.route('/listings_sara', methods=['GET'])
-    def listings():
+    def listings_sara():
         data = get_listing_price()
         #data = testData
         data = [d for d in data if bool(d) and d['sara_value'] != None]
