@@ -1,7 +1,6 @@
 from flipkartScraper import fetchFlipkartData
 from urllib.parse import urlparse, parse_qs
 from bs4 import BeautifulSoup
-import chromedriver_autoinstaller
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.by import By
@@ -17,11 +16,13 @@ from flask import Flask, request, render_template
 import xlrd
 import tqdm
 import multiprocessing
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
 
 from flask_cors import CORS, cross_origin
 
-if __name__ == '__main__':
-    chromedriver_autoinstaller.install()
+# if __name__ == '__main__':
+#     ChromeDriverManager().install()
 
 fixedData = {
     'Listing Status': 'Active',
@@ -91,7 +92,7 @@ def openAndFill(data, vertical, user, passw):
         print(driver.window_handles)
         driver.switch_to.window(driver.window_handles[index])
     else:
-        driver = webdriver.Chrome(options=opt)
+        driver = webdriver.Chrome(options=opt, service=ChromeService(ChromeDriverManager().install()))
         driver.get(listingUrl)
     index += 1
     detailMap = {}
@@ -254,7 +255,7 @@ options.add_argument('start-maximized')
 options.add_argument('disable-infobars')
 options.add_argument("--disable-extensions")
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
-driver2 = webdriver.Chrome(options=options)
+driver2 = webdriver.Chrome(options=options, service=ChromeService(ChromeDriverManager().install()))
 
 def process_url(pid):
     seller_url = "https://www.flipkart.com/sellers?pid=" + pid
