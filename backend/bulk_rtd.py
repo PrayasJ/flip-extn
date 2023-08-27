@@ -134,7 +134,7 @@ def bulkRTD(user, passw):
         'Content-Type': 'application/json',
         'fk-csrf-token': app_data['sellerConfig']['csrfToken']
     }
-
+    
     seller_id = app_data['sellerConfig']['sellerId']
     response = requests.get(
         'https://seller.flipkart.com/napi/get-locations?locationType=pickup&include=state', headers=headers)
