@@ -1,311 +1,125 @@
-from flipkartScraper import fetchFlipkartData
-from urllib.parse import urlparse, parse_qs
-from bs4 import BeautifulSoup
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium import webdriver
-import requests
-import time
-import re
-import os
+# import time
+# import os
 import json
-import sys
+# import sys
+import multiprocessing
+import requests
 from flask import Flask, request, render_template
 import xlrd
 import tqdm
-import multiprocessing
-from selenium.webdriver.chrome.service import Service as ChromeService
-# from webdriver_manager.chrome import ChromeDriverManager
+import bs4
+from bs4 import BeautifulSoup as bs
 
-from flask_cors import CORS, cross_origin
+from flask_cors import CORS
 
-# if __name__ == '__main__':
-#     ChromeDriverManager().install()
+def flipkart_post(url, data, headers):
+    """
+    Send an HTTP POST request to the specified URL with the provided data and headers.
 
-fixedData = {
-    'Listing Status': 'Active',
-    'Fullfilment by': 'Seller',
-    'Procurement type': 'Express',
-    'Procurement SLA': '1',
-    'Stock': '1000',
-    'Local delivery charge': '0',
-    'Zonal delivery charge': '0',
-    'National delivery charge': '0',
-    'Package Weight': '0.6',
-    'Package Length': '12',
-    'Package Breadth': '12',
-    'Package Height': '12',
-    'HSN': '8708',
-    'Tax Code': 'GST_28',
-    'Country of Origin': 'India',
-    'Manufacturer Details': 'Pax Automobile',
-    'Packer Details': 'Pax Automobile',
-    'Shipping provider': 'Flipkart'
-}
+    Args:
+        url (str): The URL to send the POST request to.
+        data (dict): The data to include in the POST request, which will be converted to JSON.
+        headers (dict): Headers to include in the request.
 
-url = 'https://www.flipkart.com/paxauto-exterior-fancy-accessories-hybrid-kit-maruti-eeco-2018-onwards-chrome-front-garnish/p/itmfb1ce4ae4a003?pid=CGAGMC5QURQSVEPN'
+    Returns:
+        tuple: A tuple containing two elements:
+            1. dict: The JSON response received from the server.
+            2. dict: A dictionary of cookies received in the response.
 
-# fog_lamp_unit =
-# car_garnish
-detailFetch = 'https://flipkart.dvishal485.workers.dev/product/dl/'
+    Raises:
+        requests.exceptions.RequestException: If the request fails or times out.
+    """
+    response = requests.post(url, data=json.dumps(data), headers=headers, timeout=999)
+    return json.loads(response.text)
 
-isLoggedIn = False
-index = 0
-opt = webdriver.ChromeOptions()
-opt.add_experimental_option('excludeSwitches', ['enable-logging'])
-opt.add_argument("--start-maximized")
-opt.add_argument("user-data-dir=.\\browserData")
-opt.add_experimental_option("detach", True)
-
-driver = None
-
-def fetchProductData(url):
-    global fixedData
-    uid = url.split('flipkart.')
-    uid = uid[1].split('/')
-    uid = '/'.join(uid[1:])
-    data = requests.get(f'{detailFetch}{uid}')
-    extData = fetchFlipkartData(url)
-    data = data.json()
-    for key in extData:
-        data['specs'][0]['details'].append({
-            "property": key,
-            "value": extData[key]
-        })
-    for key in fixedData:
-        data['specs'][0]['details'].append({
-            "property": key,
-            "value": fixedData[key]
-        })
-    return data
-
-
-def openAndFill(data, vertical, user, passw):
-    global isLoggedIn
-    global driver
-    global index
-    listingUrl = f'https://seller.flipkart.com/index.html#dashboard/addListings/single?brand=paxauto&vertical={vertical}'
-    if isLoggedIn:
-        driver.execute_script(f"window.open('{listingUrl}')")
-        print(driver.window_handles)
-        driver.switch_to.window(driver.window_handles[index])
-    else:
-        # driver = webdriver.Chrome(options=opt, service=ChromeService(ChromeDriverManager().install()))
-        driver = webdriver.Chrome(options=opt, executable_path='./chromedriver/chromedriver')
-        driver.get(listingUrl)
-    index += 1
-    detailMap = {}
-    for __ in data["specs"]:
-        for _ in __['details']:
-            if _['property'] == 'Brand':
-                continue
-            detailMap[_['property']] = _['value']
-    detailMap['MRP'] = data['original_price']
-    detailMap['Your selling price'] = data['current_price']
-    if not isLoggedIn:
-        try:
-            element = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.NAME, 'username')))
-            element.send_keys(user)
-            modal = driver.find_element(By.CLASS_NAME, 'modal-body-section')
-            btn = modal.find_element(By.TAG_NAME, 'button')
-            btn.click()
-            element = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.NAME, 'password')))
-
-            element.send_keys(passw)
-            modal = driver.find_element(By.CLASS_NAME, 'modal-body-section')
-            btn = modal.find_element(By.TAG_NAME, 'button')
-            btn.click()
-        except Exception as e:
-            print(e)
-        finally:
-            print('logged in')
-            isLoggedIn = True
-    try:
-        element = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.CLASS_NAME, 'ReactModal__Overlay')))
-        driver.execute_script("""
-            var element = arguments[0];
-            element.parentNode.removeChild(element);
-            """, element)
-        try:
-            element = WebDriverWait(driver, 5).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[text()='Last']")))
-            element.click()
-        except Exception as e:
-            print(e)
-    except Exception as e:
-        print(e)
-    finally:
-        btn = driver.find_element(By.XPATH, "//*[text()='Create New Listing']")
-        btn.click()
-        WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, ".//*[contains(@class, 'styles__Card')]")))
-        editFields = driver.find_elements(
-            By.XPATH, ".//*[contains(@class, 'styles__Card')]")
-        try:
-            element = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//*[contains(@class, 'styles__ProductCreationFixedSection')]")))
-            driver.execute_script("""
-                var element = arguments[0];
-                element.parentNode.removeChild(element);
-                """, element)
-        except:
-            pass
-        for field in editFields:
-            fname = field.find_element(
-                By.XPATH, ".//*[contains(@class, 'styles__Title')]").text
-            if 'Product Photos' in fname:
-                print('In ', fname)
-                WebDriverWait(field, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, ".//button[text()='EDIT']")))
-                btn = field.find_element(By.XPATH, ".//button[text()='EDIT']")
-                print(btn.text)
-                btn.click()
-                for i in range(len(detailMap['Images'])):
-                    img_url = detailMap['Images'][i]
-                    WebDriverWait(field, 10).until(
-                        EC.element_to_be_clickable((By.XPATH, f".//*[@id='thumbnail_{i}']"))).click()
-                    WebDriverWait(field, 10).until(
-                        EC.element_to_be_clickable((By.XPATH, ".//span[text()='Upload Photo']")))
-                    inp = field.find_element(
-                        By.XPATH, ".//input[@id='upload-image']")
-                    picture_req = requests.get(img_url)
-                    if picture_req.status_code == 200:
-                        print(picture_req.headers)
-                        d = picture_req.headers['Content-Type'].split('/')
-                        fname = time.strftime("%Y%m%d-%H%M%S") + '.' + d[-1]
-                        print(fname)
-                        with open(f"./temp/{fname}", 'wb') as f:
-                            f.write(picture_req.content)
-                        inp.send_keys(f"{os.getcwd()}/temp/{fname}")
-                        time.sleep(1)
-                WebDriverWait(field, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, ".//*[contains(@class, 'styles__RotatingBorder')]")))
-                btn = field.find_element(
-                    By.XPATH, ".//*[contains(@class, 'styles__RotatingBorder')]")
-                print(btn.text)
-                btn.click()
-                try:
-                    elem = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.XPATH, "//*[contains(@class, 'styles__ProductErrorSidebar')]")))
-                    driver.execute_script("""
-                    var element = arguments[0];
-                    element.parentNode.removeChild(element);
-                    """, elem)
-                except:
-                    pass
-            if 'Product Description' in fname or 'Additional Description' in fname or 'Price, Stock and Shipping Information' in fname:
-                print('In ', fname)
-                WebDriverWait(field, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, ".//button[text()='EDIT']")))
-                btn = field.find_element(By.XPATH, ".//button[text()='EDIT']")
-                print(btn.text)
-                btn.click()
-                WebDriverWait(field, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, ".//*[contains(@class, 'styles__FocusWrapper')]")))
-                inputs = field.find_elements(
-                    By.XPATH, ".//*[contains(@class, 'styles__FocusWrapper')]")
-                for inp in inputs:
-                    try:
-                        label = inp.find_element(
-                            By.XPATH, ".//*[contains(@class, 'styles__AttributeItemLabelName')]")
-                        prop = [detailMap[key] for key in detailMap if label.text.replace(
-                            '*', '').strip() == key]
-                        if len(prop) == 1:
-                            print(label.text, prop[0])
-                            try:
-                                ff = inp.find_element(
-                                    By.XPATH, ".//input[contains(@class, 'styles__StyledInput')]")
-                                ff.send_keys(prop[0])
-                            except:
-                                try:
-                                    ff = inp.find_element(
-                                        By.XPATH, ".//select[contains(@class, 'styles__StyledSelect')]")
-                                    ff.send_keys(prop[0])
-                                except:
-                                    ff = inp.find_element(
-                                        By.TAG_NAME, "textarea")
-                                    ff.send_keys(prop[0])
-                    except:
-                        pass
-                WebDriverWait(field, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, ".//*[contains(@class, 'styles__RotatingBorder')]")))
-                btn = field.find_element(
-                    By.XPATH, ".//*[contains(@class, 'styles__RotatingBorder')]")
-                print(btn.text)
-                btn.click()
-                try:
-                    elem = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.XPATH, "//*[contains(@class, 'styles__ProductErrorSidebar')]")))
-                    driver.execute_script("""
-                    var element = arguments[0];
-                    element.parentNode.removeChild(element);
-                    """, elem)
-                except:
-                    pass
-
-options = webdriver.ChromeOptions()
-options.add_argument("--headless")
-options.add_argument('--no-sandbox')
-options.add_argument('--disable-gpu')
-options.add_argument('start-maximized')
-options.add_argument('disable-infobars')
-options.add_argument("--disable-extensions")
-options.add_experimental_option('excludeSwitches', ['enable-logging'])
-# driver2 = webdriver.Chrome(options=options, service=ChromeService(ChromeDriverManager().install()))
-driver2 = webdriver.Chrome(options=options, executable_path='./chromedriver/chromedriver')
-
-def process_url(pid):
-    seller_url = "https://www.flipkart.com/sellers?pid=" + pid
-    d = {}
-    try:
-        driver2.get(seller_url)
-        wait = WebDriverWait(driver2, 60)
-        wait.until(EC.visibility_of_element_located(
-            (By.CLASS_NAME, '_2Y3EWJ')))
-        html = driver2.page_source
-        soup = BeautifulSoup(html, 'html.parser')
-        prices = soup.find_all('div', {'class': '_2Y3EWJ'})
-
-        product_page_url = 'https://www.flipkart.com' + soup.find('div', {'class': '_52cNDb'}).find('a').get('href')
-        response = requests.get(product_page_url)
-        soup = BeautifulSoup(response.content, 'html.parser')
-        product_name_element = soup.find('span', {'class': 'B_NuCI'})
-        product_name = product_name_element.text.strip()
-        selling_price_element = soup.find(
-            'div', {'class': ['_30jeq3', '_16Jk6d']})
-        selling_price = selling_price_element.text.strip()        
-        d = {
-            'product_name': product_name,
-            'pid': pid,
-            'url': product_page_url,
-            "price": selling_price,
-            'other_prices': []
-        }
-        for price in prices:
-            seller = price.find('div', {'class': '_3enH42'}).text.strip()
-            amount = price.find('div', {'class': '_30jeq3'}).text.strip()
-            d['other_prices'].append({seller: amount})
-        min_dict = min(d['other_prices'], key=lambda x: int(x[next(iter(x))].replace('₹', '').replace(',', '')))
+def display_title_price(url):
+    done = False
+    tries = 10
+    while not done and tries > 0:
+        r = requests.post(url, timeout=999)
+        soup = bs(r.content, 'html.parser')
+        price, title = -1, ''
+        price_soup = soup.find('div', attrs={"class": "_16Jk6d"})
+        if price_soup is not None:
+            price = price_soup.text
+            price_without_rs = price[1:]
+            price_without_comma = price_without_rs.replace(",", "")
+            price = int(price_without_comma)
         
-        key, value = list(min_dict.items())[0]
-        print(d['other_prices'])
-        d['pax_value'] = next((x["paxauto"] for x in d['other_prices'] if "paxauto" in x), None)
-        d['sara_value'] = next((x["CARJUNCTION"] for x in d['other_prices'] if "CARJUNCTION" in x), None)
-        d['min_seller'] = key
-        d['min_price'] = value
-        if len(d['other_prices']) > 1: 
-            second_min_dict = sorted(d['other_prices'], key=lambda x: float(list(x.values())[0].replace(',', '')[1:]))[1]
-            key2, value2 = list(second_min_dict.items())[0]
-            d['min_seller2'] = key2
-            d['min_price2'] = value2
-    except Exception as e:
-        print(f'Couldnt process {seller_url}')
-        d = {}
+        title_soup = soup.find('span', attrs={"class": "B_NuCI"})
+        if title_soup is not None:
+            title = title_soup.text.strip()
+        
+        if price_soup and title:
+            done = True
+        
+        tries -= 1
+    
+    return title, price
+
+def get_seller_from_response(response):
+    keys = ['RESPONSE','data','product_seller_detail_1','data']
+    sellers = []
+    for key in keys:
+        response = response[key] if key in response else None
+        if not response:
+            break
+    
+    if response:
+        sellers = response
+    return sellers
+        
+def process_url(pid):
+    done = False
+    tries = 10
+    d = {}
+    while not done and tries > 0:
+        seller_url = "https://1.rome.api.flipkart.com/api/3/page/dynamic/product-sellers"
+        data = {"requestContext":{"productId":pid},"locationContext":{}}
+        header = {'X-User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 FKUA/website/42/website/Desktop'}
+        response = flipkart_post(seller_url, data, header)
+        url = response['RESPONSE']['data']['product_summary_1']['data'][0]['action']['url']
+        url = 'https://www.flipkart.com' + url
+        title, selling_price = display_title_price(url)
+        d = {
+            'product_name': title,
+            'pid': pid,
+            'url': url,
+            "price": selling_price,
+            'other_prices': [],
+            'pax_value': None,
+            'sara_value': None,
+        }
+        sellers = []
+        sellers = get_seller_from_response(response)
+        if len(sellers) == 0:
+            tries -= 1
+            continue
+        for seller in sellers:
+            seller = seller['value']
+            seller_name = seller['sellerInfo']['value']['name']
+            price = seller['pricing']['value']['finalPrice']['value']
+            d['other_prices'].append({seller_name: int(price)})
+
+        flat_prices = {key: value for d in d['other_prices'] for key, value in d.items()}
+
+        d['pax_value'] = flat_prices.get('paxauto', None)
+        d['sara_value'] = flat_prices.get('CARJUNCTION', None)
+
+        sorted_keys = sorted(flat_prices, key=flat_prices.get)
+
+        d['min_seller'] = sorted_keys[0]
+        d['min_price'] = flat_prices[d['min_seller']]
+
+        if len(sorted_keys) > 1:
+            d['min_seller2'] = sorted_keys[1]
+            d['min_price2'] = flat_prices[d['min_seller2']]
+
+        if d['price'] == -1:
+            d['price'] = d['min_price']
+        
+        done = True
+            
     return d
 
 def get_listing_price():
@@ -338,31 +152,21 @@ if __name__ == '__main__':
     app = Flask(__name__)
     CORS(app)
     app.config['CORS_HEADERS'] = 'Content-Type'
-    
-    @app.route('/', methods=['POST'])
-    def hello_world():
-        tab = request.json['tab']
-        vertical = request.json['vertical']
-        print(f'Tab visited from is {tab}, vertical={vertical}!')
-        productData = fetchProductData(tab)
-        openAndFill(productData, vertical, sys.argv[1], sys.argv[2])
-        return json.dumps({'success': True}), 200, {'ContentType': 'application/json'}
 
     @app.route('/listings', methods=['GET'])
     def listings():
         data = get_listing_price()
         #data = testData
-        data = [d for d in data if bool(d) and d['pax_value'] != None]
+        # data = [d for d in data if bool(d) and d['pax_value'] != None]
         
         with open("old_dump.json", "w") as outfile:
             json.dump(data, outfile)
-        print("Total Items: ", len(data))
         
-        data_highest = filter(lambda x: int(x['pax_value'][1:].replace(',', '')) > int(x['min_price'][1:].replace(',', '')), data)
+        data_check = [d for d in data if 'pax_value' in d and d['pax_value'] is not None]
+        data_highest = filter(lambda x: x['pax_value'] > x['min_price'], data_check)
+        data_lowest = filter(lambda x: x['pax_value'] == x['min_price'], data_check)
         
-        data_lowest = filter(lambda x: int(x['pax_value'][1:].replace(',', '')) == int(x['min_price'][1:].replace(',', '')), data)
-        
-        print("Total Items: ", len(data))
+        print("Total Items: ", len(data_check))
         
         return render_template(
             'listings.html',
@@ -374,17 +178,16 @@ if __name__ == '__main__':
     def listings_sara():
         data = get_listing_price()
         #data = testData
-        data = [d for d in data if bool(d) and d['sara_value'] != None]
+        # data = [d for d in data if bool(d) and d['pax_value'] != None]
         
         with open("old_dump.json", "w") as outfile:
             json.dump(data, outfile)
-        print("Total Items: ", len(data))
         
-        data_highest = filter(lambda x: int(x['sara_value'][1:].replace(',', '')) > int(x['min_price'][1:].replace(',', '')), data)
+        data_check = [d for d in data if 'sara_value' in d and d['sara_value'] is not None]
+        data_highest = filter(lambda x: x['sara_value'] > x['min_price'], data_check)
+        data_lowest = filter(lambda x: x['sara_value'] == x['min_price'], data_check)
         
-        data_lowest = filter(lambda x: int(x['sara_value'][1:].replace(',', '')) == int(x['min_price'][1:].replace(',', '')), data)
-        
-        print("Total Items: ", len(data))
+        print("Total Items: ", len(data_check))
         
         return render_template(
             'listings_sara.html',
@@ -396,13 +199,27 @@ if __name__ == '__main__':
     def listings_old():
         f = open('old_dump.json')
         data = json.load(f)
-        data = [d for d in data if bool(d) and d['pax_value'] != None and 'min_price2' in d]
+        data_check = [d for d in data if 'pax_value' in d and d['pax_value'] is not None]
+        data_highest = filter(lambda x: x['pax_value'] > x['min_price'], data_check)
+        data_lowest = filter(lambda x: x['pax_value'] == x['min_price'], data_check)
         
-        data_highest = filter(lambda x: int(x['pax_value'][1:].replace(',', '')) > int(x['min_price'][1:].replace(',', '')), data)
+        print("Total Items: ", len(data_check))
         
-        data_lowest = filter(lambda x: int(x['pax_value'][1:].replace(',', '')) == int(x['min_price'][1:].replace(',', '')), data)
+        return render_template(
+            'listings.html',
+            data=list(data_highest),
+            data_lowest=data_lowest
+        )
+    
+    @app.route('/listings_sara_old', methods=['GET'])
+    def listings_sara_old():
+        f = open('old_dump.json')
+        data = json.load(f)
+        data_check = [d for d in data if 'sara_value' in d and d['sara_value'] is not None]
+        data_highest = filter(lambda x: x['sara_value'] > x['min_price'], data_check)
+        data_lowest = filter(lambda x: x['sara_value'] == x['min_price'], data_check)
         
-        print("Total Items: ", len(data))
+        print("Total Items: ", len(data_check))
         
         return render_template(
             'listings.html',
