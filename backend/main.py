@@ -78,7 +78,13 @@ def process_url(pid):
         data = {"requestContext":{"productId":pid},"locationContext":{}}
         header = {'X-User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 FKUA/website/42/website/Desktop'}
         response = flipkart_post(seller_url, data, header)
-        url = response['RESPONSE']['data']['product_summary_1']['data'][0]['action']['url']
+        url = ''
+        try:
+            url = response['RESPONSE']['data']['product_summary_1']['data'][0]['action']['url']
+        except:
+            print(f'Failed for pid: {pid}')
+            tries -= 1
+            continue
         url = 'https://www.flipkart.com' + url
         title, selling_price = display_title_price(url)
         d = {
